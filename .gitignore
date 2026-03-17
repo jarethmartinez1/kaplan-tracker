@@ -1,0 +1,8 @@
+.env
+db/
+downloads/
+data/kaplan_export.xlsx
+__pycache__/
+*.pyc
+.DS_Store
+.claude/

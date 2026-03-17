@@ -1,0 +1,48 @@
+# =============================================================================
+# Kaplan Real Estate Portal Selectors
+# =============================================================================
+# Update these selectors after inspecting the real portal DOM.
+# Run: python scripts/run_scraper.py --discover
+# to open a headed browser and map the actual selectors.
+# =============================================================================
+
+login:
+  url: "https://home.kaplanlearn.com/portal/klre/login"
+  username_field: "input[name='username'], input[type='email'], #username"
+  password_field: "input[name='password'], input[type='password'], #password"
+  submit_button: "button[type='submit'], input[type='submit'], .login-btn"
+  success_indicator: ".dashboard, .main-content, [class*='dashboard']"
+
+navigation:
+  candidates_list_url: "/admin/candidates"
+  candidates_menu: "a[href*='candidate'], a[href*='student'], .nav-students"
+  candidate_row: "table tbody tr, .candidate-row, .student-row"
+  candidate_link: "a[href*='candidate'], a[href*='student']"
+  next_page_button: "button.next, a.next-page, [aria-label='Next']"
+  no_more_pages: ".next[disabled], .no-results, .pagination-end"
+
+candidate_detail:
+  name: "h1, .candidate-name, .student-name, .profile-name"
+  email: ".email, .candidate-email, .student-email"
+  enrollment_date: ".enrollment-date, .start-date, .registered-date"
+
+  lessons:
+    rows: "table.lessons tbody tr, .lesson-row, .module-row"
+    lesson_name: "td:nth-child(1), .lesson-name"
+    lesson_status: "td:nth-child(2), .lesson-status"
+    lesson_date_completed: "td:nth-child(3), .completion-date"
+    total_count: ".total-lessons, .lessons-total"
+    completed_count: ".completed-lessons, .lessons-completed"
+
+  quizzes:
+    rows: "table.quizzes tbody tr, .quiz-row, .assessment-row"
+    quiz_name: "td:nth-child(1), .quiz-name"
+    score: "td:nth-child(2), .quiz-score"
+    date_taken: "td:nth-child(3), .quiz-date"
+    passing_score: "td:nth-child(4), .passing-score"
+
+  study_time:
+    total_hours: ".total-study-time, .time-spent, .total-hours"
+    session_rows: ".session-row, table.sessions tbody tr"
+    session_date: "td:nth-child(1), .session-date"
+    session_duration: "td:nth-child(2), .session-duration"
