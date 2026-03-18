@@ -14,10 +14,19 @@ KAPLAN_PORTAL_URL = os.getenv("KAPLAN_PORTAL_URL", "https://iam.kaplanlearn.com/
 DATABASE_PATH = BASE_DIR / os.getenv("DATABASE_PATH", "db/kaplan.db")
 SELECTORS_PATH = BASE_DIR / "config" / "selectors.yaml"
 
-# Cloud database (Supabase Postgres) — used when deployed
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+# Cloud database (Postgres) — used when deployed
+# Check Streamlit secrets first (for Streamlit Cloud), then env var
+def _get_database_url():
+    try:
+        import streamlit as st
+        return st.secrets.get("DATABASE_URL", "")
+    except Exception:
+        pass
+    return os.getenv("DATABASE_URL", "")
 
-# Supabase free-tier limit: 500 MB; warn at 400 MB
+DATABASE_URL = _get_database_url()
+
+# Neon free-tier limit: 512 MB; warn at 400 MB
 DB_SIZE_WARN_MB = 400
 
 
