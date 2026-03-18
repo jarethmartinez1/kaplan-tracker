@@ -14,6 +14,12 @@ KAPLAN_PORTAL_URL = os.getenv("KAPLAN_PORTAL_URL", "https://iam.kaplanlearn.com/
 DATABASE_PATH = BASE_DIR / os.getenv("DATABASE_PATH", "db/kaplan.db")
 SELECTORS_PATH = BASE_DIR / "config" / "selectors.yaml"
 
+# Cloud database (Supabase Postgres) — used when deployed
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+# Supabase free-tier limit: 500 MB; warn at 400 MB
+DB_SIZE_WARN_MB = 400
+
 
 def load_selectors() -> dict:
     with open(SELECTORS_PATH) as f:

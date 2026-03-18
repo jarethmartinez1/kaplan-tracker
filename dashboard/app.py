@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 
-from data.database import get_session, init_db
+from data.database import get_session, init_db, check_db_size
 from dashboard.utils import (
     load_candidates_df,
     load_quizzes_df,
@@ -27,9 +27,27 @@ st.title("Kaplan Real Estate Exam Prep Tracker")
 
 
 @st.cache_resource
+def get_db_engine():
+    return init_db()
+
+
 def get_db_session():
-    engine = init_db()
+    engine = get_db_engine()
     return get_session(engine)
+
+
+# --- Database size warning (Supabase free tier: 500 MB) ---
+@st.cache_data(ttl=3600)  # check once per hour
+def _db_usage():
+    engine = get_db_engine()
+    return check_db_size(engine)
+
+usage = _db_usage()
+if usage and usage["warn"]:
+    st.warning(
+        f"Database usage: {usage['size_mb']} MB / {usage['limit_mb']} MB "
+        f"(Supabase free tier). Consider cleaning old data to avoid charges."
+    )
 
 
 @st.cache_data(ttl=300)
