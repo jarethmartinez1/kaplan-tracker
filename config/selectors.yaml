@@ -8,10 +8,10 @@
 
 login:
   url: "https://home.kaplanlearn.com/portal/klre/login"
-  username_field: "input[name='username'], input[type='email'], #username"
-  password_field: "input[name='password'], input[type='password'], #password"
-  submit_button: "button[type='submit'], input[type='submit'], .login-btn"
-  success_indicator: ".dashboard, .main-content, [class*='dashboard']"
+  username_field: "input[type='email'], input[name='email'], input[name='username'], input[name='login']"
+  password_field: "input[type='password'], input[name='password']"
+  submit_button: "button:has-text('Sign In'), button[type='submit'], input[type='submit']"
+  success_indicator: "[class*='dashboard'], [class*='enrollment'], [class*='report'], .main-content, nav"
 
 navigation:
   candidates_list_url: "/admin/candidates"

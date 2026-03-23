@@ -50,55 +50,65 @@ async def run_export(headless: bool = True, excel_path: str | None = None):
 
         print("Login successful.")
 
-        # Navigate to enrollment report
-        report_url = KAPLAN_PORTAL_URL.rstrip("/") + ENROLLMENT_REPORT_PATH
+        # Navigate to enrollment report — use the same host as the current page
+        current_origin = page.url.split("/portal")[0] if "/portal" in page.url else KAPLAN_PORTAL_URL.rstrip("/")
+        report_url = current_origin + ENROLLMENT_REPORT_PATH
         print(f"Navigating to enrollment report: {report_url}")
         await page.goto(report_url, wait_until="domcontentloaded", timeout=60000)
 
         # Wait for page to be ready
         await asyncio.sleep(3)
 
-        # Set filters to "All Time" for both Enrollment and Completion Date
-        print("Setting filters to All Time...")
+        # Select Enrollment Date → All Time filter to populate the report
+        print("Setting Enrollment Date filter to All Time...")
         try:
-            # Click Enrollment Date dropdown and select All Time
-            enrollment_filter = await page.query_selector("text=Enrollment Date")
-            if enrollment_filter:
-                await enrollment_filter.click()
-                await asyncio.sleep(1)
-                all_time_btn = await page.query_selector("text=All Time")
-                if all_time_btn:
-                    await all_time_btn.click()
-                    await asyncio.sleep(1)
-
-            # Click Completion Date dropdown and select All Time
-            completion_filter = await page.query_selector("text=Completion Date")
-            if completion_filter:
-                await completion_filter.click()
-                await asyncio.sleep(1)
-                all_time_btn = await page.query_selector("text=All Time")
-                if all_time_btn:
-                    await all_time_btn.click()
+            filter_wrapper = await page.query_selector("[class*=filtersWrapper]")
+            if filter_wrapper:
+                filter_buttons = await filter_wrapper.query_selector_all("button")
+                # First button is "Enrollment Date"
+                if filter_buttons:
+                    await filter_buttons[0].click()
                     await asyncio.sleep(2)
+                    # Select "All Time" radio option
+                    all_time = page.get_by_text("All Time", exact=True)
+                    if await all_time.count() > 0:
+                        await all_time.click()
+                        await asyncio.sleep(1)
+                    # Click Apply to load the report
+                    apply_btn = page.get_by_role("button", name="Apply")
+                    if await apply_btn.count() > 0:
+                        await apply_btn.click()
+                        print("Filter applied — waiting for report to load...")
+                        await asyncio.sleep(5)
+                    else:
+                        print("WARNING: Could not find Apply button.")
+                else:
+                    print("WARNING: No filter buttons found in wrapper.")
+            else:
+                print("WARNING: Could not find filter wrapper.")
         except Exception as e:
             print(f"Filter setup warning: {e}")
-            print("Proceeding with default filters...")
 
-        # Wait for report to load
-        print("Waiting for report data to load...")
-        await asyncio.sleep(5)
+        # Wait for Export button to become enabled (report must finish loading)
+        print("Waiting for Export button to become enabled...")
+        export_locator = page.get_by_role("button", name="Export")
+        if await export_locator.count() == 0:
+            print("ERROR: Could not find Export button.")
+            return
 
-        # Click Export button and wait for download
+        # Wait up to 2 minutes for the button to be enabled
+        for _ in range(120):
+            is_disabled = await export_locator.get_attribute("disabled")
+            if is_disabled is None:
+                break
+            await asyncio.sleep(1)
+        else:
+            print("ERROR: Export button still disabled after 2 minutes.")
+            return
+
         print("Clicking Export...")
-        async with page.expect_download(timeout=60000) as download_info:
-            export_btn = await page.query_selector("text=Export")
-            if not export_btn:
-                export_btn = await page.query_selector("[class*='export'], button:has-text('Export')")
-            if export_btn:
-                await export_btn.click()
-            else:
-                print("ERROR: Could not find Export button.")
-                return
+        async with page.expect_download(timeout=120000) as download_info:
+            await export_locator.click()
 
         download = await download_info.value
         save_path = downloads_dir / f"kaplan_export_{date.today().isoformat()}.xlsx"
@@ -187,7 +197,22 @@ async def run_discover():
                 auth = PortalAuth(page, selectors, KAPLAN_USERNAME, KAPLAN_PASSWORD)
                 success = await auth.login()
                 if success:
-                    print("Login successful. Browser is open for inspection.")
+                    print("Login successful.")
+                    # Navigate to enrollment report
+                    current_origin = page.url.split("/portal")[0] if "/portal" in page.url else "https://home.kaplanlearn.com"
+                    report_url = current_origin + ENROLLMENT_REPORT_PATH
+                    print(f"Navigating to enrollment report: {report_url}")
+                    await page.goto(report_url, wait_until="domcontentloaded", timeout=60000)
+                    await asyncio.sleep(5)
+                    # Debug: print all buttons and links
+                    buttons = await page.query_selector_all("button, a, [role='button']")
+                    print(f"\nFound {len(buttons)} clickable elements on report page:")
+                    for btn in buttons:
+                        text = (await btn.inner_text()).strip()[:60] if await btn.inner_text() else ""
+                        tag = await btn.evaluate("el => el.tagName")
+                        cls = await btn.get_attribute("class") or ""
+                        if text:
+                            print(f"  <{tag} class='{cls[:40]}'> {text}")
                 else:
                     print("Auto-login failed — log in manually in the browser.")
             except Exception as e:
@@ -197,7 +222,6 @@ async def run_discover():
             print("No credentials in .env — log in manually in the browser.")
 
         print("\nBrowser is open. Navigate and inspect elements.")
-        print("Right-click elements -> Inspect to find CSS selectors.")
         print("Press Ctrl+C in terminal when done.")
 
         try:
@@ -214,6 +238,8 @@ import pandas as pd
 def main():
     if "--discover" in sys.argv:
         asyncio.run(run_discover())
+    elif "--headed" in sys.argv:
+        asyncio.run(run_export(headless=False))
     elif "--file" in sys.argv:
         # Import from an existing Excel file
         idx = sys.argv.index("--file")
