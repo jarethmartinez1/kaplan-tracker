@@ -136,6 +136,8 @@ def _import_excel(session, file_path):
             "name": row["Name"],
             "email": row["Email"],
             "enrollment_date": row["earliest_enrollment"].date() if pd.notna(row["earliest_enrollment"]) else None,
+            "first_access_date": row["earliest_access"].date() if pd.notna(row["earliest_access"]) else None,
+            "last_access_date": row["latest_access"].date() if pd.notna(row["latest_access"]) else None,
             "total_lessons": int(row["total_courses"]),
         }
         candidate = upsert_candidate(session, candidate_data)

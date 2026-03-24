@@ -24,8 +24,8 @@ def render_sidebar(candidate_names: list[str]) -> dict:
     # Risk filter
     risk_filter = st.sidebar.multiselect(
         "Status",
-        options=["on_track", "at_risk", "behind", "complete", "unknown"],
-        default=["on_track", "at_risk", "behind", "complete", "unknown"],
+        options=["on_track", "at_risk", "behind", "overdue", "complete", "not_started", "inactive", "unknown"],
+        default=["on_track", "at_risk", "behind", "overdue", "complete"],
     )
 
     st.sidebar.divider()

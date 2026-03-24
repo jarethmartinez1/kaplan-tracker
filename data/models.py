@@ -26,6 +26,8 @@ class Candidate(Base):
     name = Column(String, nullable=False)
     email = Column(String)
     enrollment_date = Column(Date)
+    first_access_date = Column(Date)
+    last_access_date = Column(Date)
     total_lessons = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

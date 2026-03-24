@@ -82,6 +82,7 @@ def aggregate_per_candidate(df: pd.DataFrame) -> pd.DataFrame:
         total_seat_minutes=("Seat Time Minutes", "sum"),
         earliest_enrollment=("Enrollment Date", "min"),
         latest_completion=("Completion Date", "max"),
+        earliest_access=("First Access Date", "min"),
         latest_access=("Last Access Date", "max"),
         courses_list=("Course Name", list),
     ).reset_index()

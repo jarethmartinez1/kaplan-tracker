@@ -7,8 +7,22 @@ STATUS_LABELS = {
     "at_risk": "At Risk",
     "behind": "Behind",
     "complete": "Complete",
+    "not_started": "Not Started",
+    "inactive": "Inactive",
+    "overdue": "Overdue",
     "unknown": "Unknown",
 }
+
+
+def _format_projected(projected, status):
+    if pd.isna(projected):
+        return "--"
+    formatted = projected.strftime("%b %d, %Y")
+    if status == "overdue":
+        return f"Overdue ({formatted})"
+    if status == "inactive":
+        return "--"
+    return formatted
 
 
 def render_candidate_table(df: pd.DataFrame):
@@ -27,8 +41,9 @@ def render_candidate_table(df: pd.DataFrame):
     display_df = pd.DataFrame({
         "Name": df["name"],
         "Completion": df["completion_pct"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "--"),
-        "Projected Date": df["projected_date"].apply(
-            lambda x: x.strftime("%b %d, %Y") if pd.notna(x) else "--"
+        "Projected Date": df.apply(
+            lambda r: _format_projected(r["projected_date"], r["risk_status"]),
+            axis=1,
         ),
         "Avg Score": df["avg_quiz_score"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "--"),
         "Status": df["risk_status"].map(STATUS_LABELS).fillna("Unknown"),
