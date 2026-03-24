@@ -3,26 +3,22 @@ import pandas as pd
 
 
 STATUS_LABELS = {
-    "on_track": "On Track",
+    "on_pace": "On Pace",
     "at_risk": "At Risk",
     "behind": "Behind",
     "complete": "Complete",
     "not_started": "Not Started",
     "inactive": "Inactive",
-    "overdue": "Overdue",
     "unknown": "Unknown",
 }
 
 
-def _format_projected(projected, status):
-    if pd.isna(projected):
+def _format_hrs_per_week(hrs, status):
+    if status in ("not_started", "inactive"):
         return "--"
-    formatted = projected.strftime("%b %d, %Y")
-    if status == "overdue":
-        return f"Overdue ({formatted})"
-    if status == "inactive":
+    if pd.isna(hrs):
         return "--"
-    return formatted
+    return f"{hrs:.1f}"
 
 
 def render_candidate_table(df: pd.DataFrame):
@@ -41,8 +37,8 @@ def render_candidate_table(df: pd.DataFrame):
     display_df = pd.DataFrame({
         "Name": df["name"],
         "Completion": df["completion_pct"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "--"),
-        "Projected Date": df.apply(
-            lambda r: _format_projected(r["projected_date"], r["risk_status"]),
+        "Avg Hrs/Week": df.apply(
+            lambda r: _format_hrs_per_week(r["avg_hrs_per_week"], r["risk_status"]),
             axis=1,
         ),
         "Avg Score": df["avg_quiz_score"].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "--"),
@@ -59,7 +55,7 @@ def render_candidate_table(df: pd.DataFrame):
         column_config={
             "Name": st.column_config.TextColumn("Name", width="medium"),
             "Completion": st.column_config.TextColumn("Completion", width="small"),
-            "Projected Date": st.column_config.TextColumn("Projected Date", width="medium"),
+            "Avg Hrs/Week": st.column_config.TextColumn("Avg Hrs/Week", width="small"),
             "Avg Score": st.column_config.TextColumn("Avg Score", width="small"),
             "Status": st.column_config.TextColumn("Status", width="small"),
         },

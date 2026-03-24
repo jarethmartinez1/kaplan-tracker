@@ -103,6 +103,12 @@ def import_to_db(df: pd.DataFrame):
         else:
             enrollment_date = None
 
+        # First/last access dates across all courses
+        first_access = candidate_courses["First Access Date"].min()
+        first_access_date = first_access.date() if pd.notna(first_access) else None
+        last_access = candidate_courses["Last Access Date"].max()
+        last_access_date = last_access.date() if pd.notna(last_access) else None
+
         total_courses = len(candidate_courses)
         completed_courses = len(
             candidate_courses[candidate_courses["Course Status"] == "Completed"]
@@ -114,6 +120,8 @@ def import_to_db(df: pd.DataFrame):
             candidate.name = name
             candidate.email = email
             candidate.enrollment_date = enrollment_date
+            candidate.first_access_date = first_access_date
+            candidate.last_access_date = last_access_date
             candidate.total_lessons = total_courses
         else:
             candidate = Candidate(
@@ -121,6 +129,8 @@ def import_to_db(df: pd.DataFrame):
                 name=name,
                 email=email,
                 enrollment_date=enrollment_date,
+                first_access_date=first_access_date,
+                last_access_date=last_access_date,
                 total_lessons=total_courses,
             )
             session.add(candidate)

@@ -26,5 +26,5 @@ def render_overview(df: pd.DataFrame):
 
     with col4:
         at_risk = len(df[df["risk_status"].isin(["at_risk", "behind"])])
-        on_track = len(df[df["risk_status"] == "on_track"])
-        st.metric("On Track / At Risk", f"{on_track} / {at_risk}")
+        on_pace = len(df[df["risk_status"] == "on_pace"])
+        st.metric("On Pace / At Risk", f"{on_pace} / {at_risk}")

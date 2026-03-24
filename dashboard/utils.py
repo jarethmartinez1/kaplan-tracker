@@ -3,48 +3,44 @@ from datetime import date, timedelta
 import pandas as pd
 
 
-def project_completion_date(
-    first_access_date: date | None,
-    last_access_date: date | None,
-    lessons_completed: int,
-    total_lessons: int,
-) -> date | None:
-    """
-    Linear projection based on pace between first and last access.
-    Uses the active study window (first_access → last_access) rather than
-    enrollment date, which may predate actual study activity by years.
-    Returns None if projection is not possible.
-    """
-    if not first_access_date or not last_access_date:
-        return None
-    if lessons_completed <= 0 or total_lessons <= 0:
-        return None
-
-    remaining = total_lessons - lessons_completed
-    if remaining <= 0:
-        return last_access_date  # Already complete
-
-    days_active = (last_access_date - first_access_date).days
-    if days_active <= 0:
-        return None  # Single-day access, can't extrapolate
-
-    rate = lessons_completed / days_active  # lessons per day
-    days_remaining = remaining / rate
-    return last_access_date + timedelta(days=int(days_remaining))
-
-
 INACTIVE_THRESHOLD_DAYS = 90
 OVERDUE_INACTIVE_DAYS = 120
 TARGET_WEEKS_FROM_START = 4
+BEHIND_HRS_PER_WEEK = 20
+
+
+def avg_hours_per_week(
+    first_access_date: date | None,
+    last_access_date: date | None,
+    total_study_minutes: int | None,
+) -> float | None:
+    """
+    Average study hours per week based on total study time
+    spread over the active window (first_access → last_access).
+    Returns None if calculation is not possible.
+    """
+    if not first_access_date or not last_access_date:
+        return None
+    if not total_study_minutes or total_study_minutes <= 0:
+        return None
+
+    days_active = (last_access_date - first_access_date).days
+    if days_active <= 0:
+        # Only one day of access — treat as 1 week
+        weeks = 1.0
+    else:
+        weeks = max(days_active / 7.0, 1.0)
+
+    return (total_study_minutes / 60.0) / weeks
 
 
 def classify_risk(
     completion_pct: float,
-    projected_date: date | None,
+    hrs_per_week: float | None,
     last_access_date: date | None,
     target_date: date | None = None,
 ) -> str:
-    """Classify candidate status."""
+    """Classify candidate status based on avg hours per week."""
     if completion_pct >= 100:
         return "complete"
 
@@ -55,23 +51,17 @@ def classify_risk(
     days_since_access = (date.today() - last_access_date).days if last_access_date else None
     inactive = days_since_access is not None and days_since_access > INACTIVE_THRESHOLD_DAYS
 
-    if projected_date is None:
-        return "inactive" if inactive else "unknown"
+    if inactive:
+        return "inactive"
 
-    # Projected date is in the past — they didn't finish on time
-    if projected_date < date.today() and inactive:
-        # Overdue 120+ days past projected date → inactive
-        days_overdue = (date.today() - projected_date).days
-        if days_overdue > OVERDUE_INACTIVE_DAYS:
-            return "inactive"
-        return "overdue"
+    if hrs_per_week is None:
+        return "unknown"
 
-    if target_date and projected_date > target_date:
-        return "behind"
+    past_target = target_date and date.today() > target_date
 
-    if completion_pct >= 60:
-        return "on_track"
-    elif completion_pct >= 30:
+    if hrs_per_week >= BEHIND_HRS_PER_WEEK:
+        if not past_target:
+            return "on_pace"
         return "at_risk"
     else:
         return "behind"
@@ -116,11 +106,11 @@ def load_candidates_df(session) -> pd.DataFrame:
     # Keep only latest snapshot per candidate
     df = df.drop_duplicates(subset=["id"], keep="first")
 
-    # Add projected completion date
-    df["projected_date"] = df.apply(
-        lambda r: project_completion_date(
+    # Compute avg hours per week
+    df["avg_hrs_per_week"] = df.apply(
+        lambda r: avg_hours_per_week(
             r["first_access_date"], r["last_access_date"],
-            r["lessons_completed"] or 0, r["total_lessons"] or 0,
+            r["total_study_minutes"] or 0,
         ),
         axis=1,
     )
@@ -133,7 +123,7 @@ def load_candidates_df(session) -> pd.DataFrame:
     # Add risk classification
     df["risk_status"] = df.apply(
         lambda r: classify_risk(
-            r["completion_pct"] or 0, r["projected_date"],
+            r["completion_pct"] or 0, r["avg_hrs_per_week"],
             r["last_access_date"], r["target_date"],
         ),
         axis=1,
