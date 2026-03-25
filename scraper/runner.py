@@ -20,6 +20,124 @@ from scraper.excel_parser import aggregate_per_candidate, parse_kaplan_excel
 ENROLLMENT_REPORT_PATH = "/portal/klre/company/7007557/enrollmentreport"
 
 
+async def _apply_enrollment_date_filter(page):
+    """Set Enrollment Date filter to All Time."""
+    enroll_btn = page.get_by_role("button", name="Enrollment Date")
+    if await enroll_btn.count() == 0:
+        print("  WARNING: No 'Enrollment Date' filter button found.")
+        return
+    await enroll_btn.click()
+    await asyncio.sleep(2)
+
+    all_time = page.get_by_text("All Time", exact=True)
+    if await all_time.count() > 0:
+        await all_time.click()
+        await asyncio.sleep(1)
+
+    apply_btn = page.get_by_role("button", name="Apply")
+    if await apply_btn.count() > 0:
+        await apply_btn.click()
+        print("  Enrollment Date → All Time applied")
+        await asyncio.sleep(5)
+
+
+async def _add_course_status_filter(page):
+    """Add Course Status filter via 'Add Filter' and include all statuses."""
+    add_filter_btn = page.get_by_role("button", name="Add Filter")
+    if await add_filter_btn.count() == 0:
+        print("  WARNING: No 'Add Filter' button found.")
+        return
+
+    await add_filter_btn.click()
+    await asyncio.sleep(2)
+
+    # A dropdown/menu should appear with filter options — look for "Course Status"
+    status_option = page.get_by_text("Course Status", exact=False)
+    if await status_option.count() > 0:
+        await status_option.first.click()
+        await asyncio.sleep(2)
+        print("  Added 'Course Status' filter")
+    else:
+        # Debug: list available filter options
+        print("  WARNING: 'Course Status' not found in Add Filter menu.")
+        menu_items = await page.query_selector_all("[role=menuitem], [role=option], li")
+        for item in menu_items[:10]:
+            text = (await item.inner_text()).strip()
+            if text:
+                print(f"    Available filter: '{text}'")
+        return
+
+    # Now a Course Status filter should appear — click it to open its options
+    await asyncio.sleep(2)
+    status_filter_btn = page.get_by_role("button", name="Course Status")
+    if await status_filter_btn.count() > 0:
+        await status_filter_btn.click()
+        await asyncio.sleep(2)
+    else:
+        print("  WARNING: 'Course Status' button didn't appear after adding.")
+        return
+
+    # Select all status checkboxes via JS — MUI hides the real inputs,
+    # so we click the MuiFormControlLabel parent elements directly.
+    statuses_to_select = [
+        "Not Started", "In Progress", "Pending", "Completed",
+        "Incomplete", "Active", "Expired",
+    ]
+    results = await page.evaluate('''(statuses) => {
+        const out = [];
+        const labels = document.querySelectorAll('.MuiFormControlLabel-root');
+        for (const status of statuses) {
+            let found = false;
+            for (const l of labels) {
+                const span = l.querySelector('.MuiTypography-root');
+                if (span && span.textContent.trim() === status) {
+                    l.click();
+                    found = true;
+                    break;
+                }
+            }
+            out.push({status, found});
+        }
+        return out;
+    }''', statuses_to_select)
+    await asyncio.sleep(1)
+
+    selected_any = False
+    for r in results:
+        if r["found"]:
+            selected_any = True
+            print(f"    Selected: {r['status']}")
+        else:
+            print(f"    Not found: {r['status']}")
+
+    if not selected_any:
+        print("  WARNING: Could not select any course status options.")
+
+    # Apply — wait for the button to become enabled after checkbox selection
+    if selected_any:
+        apply_btn = page.get_by_role("button", name="Apply")
+        if await apply_btn.count() > 0:
+            try:
+                await apply_btn.click(timeout=10000)
+                print("  Course Status filter applied")
+                await asyncio.sleep(5)
+            except Exception:
+                # Force click via JS if MUI keeps it disabled
+                await page.evaluate('''() => {
+                    const btns = document.querySelectorAll('button');
+                    for (const b of btns) {
+                        if (b.textContent.trim() === 'Apply' && !b.closest('.onetrust')) {
+                            b.disabled = false;
+                            b.click();
+                            return true;
+                        }
+                    }
+                    return false;
+                }''')
+                print("  Course Status filter applied (via JS)")
+                await asyncio.sleep(5)
+
+
 async def run_export(headless: bool = True, excel_path: str | None = None):
     """Log in, export Excel from enrollment report, parse, and store in DB."""
     engine = init_db()
@@ -59,33 +177,14 @@ async def run_export(headless: bool = True, excel_path: str | None = None):
         # Wait for page to be ready
         await asyncio.sleep(3)
 
-        # Select Enrollment Date → All Time filter to populate the report
-        print("Setting Enrollment Date filter to All Time...")
+        # Configure report filters: All Time
+        # NOTE: We intentionally do NOT add a Course Status filter — the default
+        # (no status filter) exports all statuses including Completed.
+        # Adding a status filter and selecting all options paradoxically
+        # excludes Completed rows from the Kaplan portal export.
+        print("Configuring report filters...")
         try:
-            filter_wrapper = await page.query_selector("[class*=filtersWrapper]")
-            if filter_wrapper:
-                filter_buttons = await filter_wrapper.query_selector_all("button")
-                # First button is "Enrollment Date"
-                if filter_buttons:
-                    await filter_buttons[0].click()
-                    await asyncio.sleep(2)
-                    # Select "All Time" radio option
-                    all_time = page.get_by_text("All Time", exact=True)
-                    if await all_time.count() > 0:
-                        await all_time.click()
-                        await asyncio.sleep(1)
-                    # Click Apply to load the report
-                    apply_btn = page.get_by_role("button", name="Apply")
-                    if await apply_btn.count() > 0:
-                        await apply_btn.click()
-                        print("Filter applied — waiting for report to load...")
-                        await asyncio.sleep(5)
-                    else:
-                        print("WARNING: Could not find Apply button.")
-                else:
-                    print("WARNING: No filter buttons found in wrapper.")
-            else:
-                print("WARNING: Could not find filter wrapper.")
+            await _apply_enrollment_date_filter(page)
         except Exception as e:
             print(f"Filter setup warning: {e}")
 
