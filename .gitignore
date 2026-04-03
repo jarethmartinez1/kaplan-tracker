@@ -5,4 +5,5 @@ data/kaplan_export.xlsx
 __pycache__/
 *.pyc
 .DS_Store
+.streamlit/secrets.toml
 .claude/
